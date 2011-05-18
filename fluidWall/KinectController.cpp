@@ -2,7 +2,7 @@
  * @file      KinectController.cpp
  * @author    Naureen Mahmood 
  * @copyright 2011 Austin Hines, Naureen Mahmood, and Texas A&M Dept. of Visualization
- * @version	  1.0.0
+ * @version	  1.0.1
  *
  * This file is part of Fluid Wall. You can redistribute it and/or modify            
  * it under the terms of the GNU Lesser General Public License as published  
@@ -17,6 +17,12 @@
  * You should have received a copy of the GNU Lesser General Public License  
  * along with Fluid Wall. If not, see <http://www.gnu.org/licenses/>.            
  *
+ * Version History:
+ * 1.0.1
+ *	 - Made Kinect motor and depth functions also print their values
+ *     to the console to help people remember their settings. (Edit by Austin)
+ * 1.0.0
+ *   - Initial Release
  */
 
 #include "KinectController.h"
@@ -164,6 +170,13 @@ XnStatus KinectController::reset()
 	return xnRetVal;
 }
 
+/*! Set Depth Threshold		*/
+void KinectController::setDepth(int depthDelta)
+{	
+	depthThresh += depthDelta;	
+	cout<<"Depth Threshold: "<<depthThresh<<endl;
+}
+
 // Shutdown function
 void KinectController:: kinectCleanupExit()
 {
@@ -187,6 +200,7 @@ void KinectController::setMotorAngle(int angle)
 	nuiAngle+= angle;
 	nuiAngle = (nuiAngle > 15000? 15000 : nuiAngle < -15000? -15000 : nuiAngle);
 	SetNUIMotorPosition(nuiMotor, nuiAngle);
+	cout<<"Motor Angle: "<<nuiAngle<<endl;
 }
 
 // Reset Motor angle to 'initAngle' set at the start

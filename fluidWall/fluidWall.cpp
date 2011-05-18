@@ -2,7 +2,7 @@
  * @file      fluidWall.cpp
  * @author    Austin Hines <futurelightstudios@gmail.com>
  * @copyright 2011 Austin Hines, Naureen Mahmood, and Texas A&M Dept. of Visualization
- * @version	  1.0.0
+ * @version	  1.0.1
  * 
  * The main executable for Fluid Wall. Contains functions that define how the
  * KinectController class effects the FluidSolver classes. This defines the general
@@ -19,7 +19,15 @@
  * GNU Lesser General Public License for more details.                       
  *                                                                            
  * You should have received a copy of the GNU Lesser General Public License  
- * along with Fluid Wall. If not, see <http://www.gnu.org/licenses/>.            
+ * along with Fluid Wall. If not, see <http://www.gnu.org/licenses/>.     
+ *
+ * Version History:
+ * 1.0.1
+ *	 - Added fullscreen toggle mode, bound to 'q' key. 
+ *   - Removed 'q' key as quit.
+ *   - Added Version tag to GLUT window and command line output.
+ * 1.0.0
+ *   - Initial Release
  *
  */
 
@@ -39,6 +47,7 @@
 #include "FluidSolverMultiUser.h"
 #include "KinectController.h"
 
+static const char* VERSION = "1.0.1 BETA";
 
 #ifndef GL_BGR //fix omission from windows OpenGL implementation
 	#define GL_BGR GL_BGR_EXT
@@ -51,8 +60,6 @@
 #define WEBCAM_ID 0
 #define USE_KINECT 1
 #define DEBUG 0
-#define USE_FULLSCREEN 0
-#define BG_OFFSET 0.1
 
 // macros 
 #define ROW_WIDTH N+2
@@ -62,10 +69,11 @@
 #define SWAP(x0, x) { float* tmp = x0; x0 = x; x = tmp; }
 
 
-///// globals
+///// constants
 const static int   N_DEF           = 128;
 const static float FLOW_SCALAR     = 0.1;
 const static int   NUM_SPLASH_ROWS = 80;
+const static float BG_OFFSET	   = 0.1;
 
 using namespace std;
 using namespace cv; 
@@ -78,6 +86,10 @@ typedef struct {
 	int userNo;
 } Emitter;
 
+// =============================================================================
+// GLOBAL VARIABLES
+// =============================================================================
+
 FluidSolver *solver; 
 FluidSolverMultiUser *userSolver;
 bool useUserSolver = false;
@@ -89,7 +101,6 @@ Mat depthMatrix;
 Mat usersMatrix;
 Mat usersMatrixResize;
 
-//TODO: add white bg mode
 GLfloat Colors[][3] =                     // user colors for fluid emission
 {
 	//{0.02f,0.02f,0.02f},
@@ -127,12 +138,9 @@ const static int MAX_USERS               = 6;
 const static int ITERATIONS_BEFORE_RESET = 10000;
 const static int INIT_DEPTH	             = 3000;
 const static int INIT_MOTOR	             = 10000;
+const static int DEF_WINDOW_SIZE		 = 512;
 
 #endif
-
-// =============================================================================
-// GLOBAL VARIABLES
-// =============================================================================
 
 //particle system variables
 static int N;
@@ -144,7 +152,6 @@ static bool useFlow;					//use optical flow
 vector<Emitter> emitters(MAX_EMITTERS);
 
 //OpenCV
-const char* imagename = "imageCollision.ppm";
 VideoCapture cap = NULL; //capture img from webcam
 
 Mat image;
@@ -156,7 +163,6 @@ static int win_id;
 static int win_x, win_y;
 static int mouse_down[3];
 static int omx, omy, mx, my;
-bool fullscreen = USE_FULLSCREEN;
 
 //display flags
 static int dvel, dbound, dusers;
@@ -171,6 +177,10 @@ int iterations_per_mode = 500; //frames per mode
 
 //forward method declarations
 static void changeMode(int newMode);
+static void open_glut_window ( void );
+static void initOpenGl();
+static void toggleFullscreen();
+
 
 /*
   ----------------------------------------------------------------------
@@ -232,6 +242,8 @@ static int allocateData ( void )
  */
 void cleanupExit()
 {
+	if (glutGameModeGet(GLUT_GAME_MODE_ACTIVE))
+		glutLeaveGameMode();
 	exit(0);
 }
 
@@ -859,13 +871,12 @@ static void drawUsers(void)
 #endif
 ////////////////////////////////////////////////////////////////////////
 
-
-
 /*
   ----------------------------------------------------------------------
    GLUT callback routines
   ----------------------------------------------------------------------
 */
+
 /**
  *  GLUT keyboard listener function.
  *
@@ -881,10 +892,7 @@ static void key_func ( unsigned char key, int x, int y )
 		case 'C':
 			clearData();
 			break;
-		case 'q':
-		case 'Q':
-		case '27': //escape key
-			glutLeaveGameMode();
+		case 27 : //escape key
 			cleanupExit();
 			break;
 		case 'f':
@@ -944,7 +952,13 @@ static void key_func ( unsigned char key, int x, int y )
 		case 'K':
 			kinect->setDepth (-200);
 			break;
+
 		#endif
+
+		case 'Q' :
+		case 'q' :
+			toggleFullscreen();
+			break;
 
 	}
 }
@@ -969,6 +983,7 @@ static void mouse_func ( int button, int state, int x, int y )
 }
 
 
+
 /**
  *  GLUT mouse movement function. Called when mouse is moved
  *
@@ -982,6 +997,7 @@ static void motion_func ( int x, int y )
 }
 
 
+
 /**
  *  GLUT window reshaping function. Called whenever a window is resized.
  *
@@ -990,8 +1006,7 @@ static void motion_func ( int x, int y )
  */
 static void reshape_func ( int width, int height )
 {
-	if(!fullscreen) 
-		glutSetWindow ( win_id );
+
 	glutReshapeWindow ( width, height );
 
 	win_x = width;
@@ -999,15 +1014,18 @@ static void reshape_func ( int width, int height )
 }
 
 
+
 /**
- *  Called when OpenGL is not drawing. Calls for another draw rame
+ *  Called when OpenGL is not drawing. Calls for another draw frame
  */
 static void idle_func ( void )
 {
-	if(!fullscreen) 
-		glutSetWindow ( win_id );
-	glutPostRedisplay ();
+	bool fullscreen = glutGameModeGet(GLUT_GAME_MODE_ACTIVE);
+	if(!fullscreen)
+		glutSetWindow(win_id);
+	glutPostRedisplay();
 }
+
 
 
 /**
@@ -1079,24 +1097,11 @@ static void drawFunction ( void )
 
 
 /**
- *  Opens a GLUT compatible window and sets OpenGL callbacks.
+ *  Sets OpenGL Callbacks
  *
  */
-static void open_glut_window ( void )
+static void initOpenGl() 
 {
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-	if(fullscreen) 
-	{
-		glutGameModeString("640x480:16@60");
-		glutEnterGameMode();
-	}
-	else 
-	{
-		glutInitWindowPosition ( 0, 0 );
-		glutInitWindowSize ( win_x, win_y );
-		win_id = glutCreateWindow ( "Fluid Wall" );
-	}
-
 	glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
 	glClear ( GL_COLOR_BUFFER_BIT );
 	glutSwapBuffers ();
@@ -1112,8 +1117,61 @@ static void open_glut_window ( void )
 	glutIdleFunc     (idle_func    );
 	glutDisplayFunc  (drawFunction );
 
+}
+
+
+
+/**
+ * Switches between fullscreen and windowed mode.
+ */
+static void toggleFullscreen()
+{
+	bool fullscreen = glutGameModeGet(GLUT_GAME_MODE_ACTIVE);
+	if(fullscreen) {
+		win_x = win_y = DEF_WINDOW_SIZE;
+		glutLeaveGameMode();
+		open_glut_window();
+	}
+	else {
+		glutGameModeString("640x480:16@60");
+
+		if (glutGameModeGet(GLUT_GAME_MODE_POSSIBLE)) {
+			glutEnterGameMode();
+			//glutDestroyWindow(win_id);
+			win_x = glutGameModeGet(GLUT_GAME_MODE_WIDTH);
+			win_y = glutGameModeGet(GLUT_GAME_MODE_HEIGHT);
+			initOpenGl();
+		}
+
+		else {
+			printf("The select fullscreen mode is not available\n");
+		}
+	}
 
 }
+
+
+
+/**
+ *  Opens a GLUT compatible window and sets OpenGL callbacks.
+ *
+ */
+static void open_glut_window ( void )
+{
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+	glutInitWindowPosition ( 0, 0 );
+	glutInitWindowSize ( win_x, win_y );
+
+	char* windowName;
+	sprintf(windowName, "Fluid Wall %s", VERSION);	
+	win_id = glutCreateWindow(windowName);
+
+	//register callbacks
+	initOpenGl();
+
+}
+
+
 
 //////////////////////////////////////////////////////////////////////////
 /*
@@ -1137,27 +1195,32 @@ int main ( int argc, char ** argv )
 		exit ( 1 );
 	}
 
-	printf ( "\n\nFluid Wall: Instructions:\n\n" );
+	printf ( "\n\n ==== Fluid Wall %s ==== \n", VERSION);
+	printf ( " SIMULATION:\n");
 	printf ( "\t Add densities with the right mouse button\n" );
 	printf ( "\t Add bounds with the middle mouse button\n" );
 	printf ( "\t Add velocities with the left mouse button and dragging the mouse\n" );
-	printf ( "\t Toggle density/velocity display with the 'v' key\n" );
-	printf ( "\t Toggle bounds display with the 'b' key\n" );
-	printf ( "\t Toggle users display by pressing the 'u' key.\n" );
-	printf ( "\t Toggle use of optical flow by pressing the 'f' key.\n" );
-	printf ( "\t Toggle use of Automatic Mode Change by pressing the '0' key.\n" );
-	printf ( "\t Switch to mode 1: Single user, blue fluid, by pressing the '1' key.\n" );
-	printf ( "\t Switch to mode 2: Velocity Vector, no optical flow, by pressing the '2' key.\n" );
-	printf ( "\t Switch to mode 3: Multi-user, multicolor fluid, by pressing the '3' key.\n" );
-	printf ( "\t Switch to mode 1: Multi-user, white background, by pressing the '4' key.\n" );
-	printf ( "\t Increase Kinect motor angle by pressing the 'w' key.\n" );
-	printf ( "\t Decrease Kinect motor angle by pressing the 's' key.\n" );
-	printf ( "\t Reset Kinect motor angle by pressing the SPACEBAR key.\n" );
-	printf ( "\t Increase Kinect depth thrshold angle by pressing the 'o' key.\n" );
-	printf ( "\t Decrease Kinect depth thrshold angle by pressing the 'k' key.\n" );
-	printf ( "\t Clear the simulation by pressing the 'c' key\n" );
-	printf ( "\t Reset the Kinect by pressing the + key \n" );
-	printf ( "\t Quit by pressing the 'q' key\n" );
+	printf ( "\t Toggle use of optical flow with the 'f' key.\n" );
+	printf ( "\t Clear the simulation with the 'c' key\n" );
+	printf ( " DISPLAY:\n");
+	printf ( "\t Toggle fullscreen mode with the 'q' key.\n" );
+	printf ( "\t Toggle density/velocity display with the 'v' key.\n" );
+	printf ( "\t Toggle bounds display with the 'b' key.\n" );
+	printf ( "\t Toggle users display with the 'u' key.\n" );
+	printf ( " MODES:\n");
+	printf ( "\t '0' key: Toggle Automatic Mode Change.\n" );
+	printf ( "\t '1' key: Switch to mode 1: Single user, blue fluid.\n" );
+	printf ( "\t '2' key: Switch to mode 2: Velocity Vector, no optical flow.\n" );
+	printf ( "\t '3' key: Switch to mode 3: Multi-user, multicolor fluid.\n" );
+	printf ( "\t '4' key: Switch to mode 4: Multi-user, white background.\n" );
+	printf ( " KINECT:\n");
+	printf ( "\t Increase Kinect motor angle with the 'w' key.\n" );
+	printf ( "\t Decrease Kinect motor angle with the 's' key.\n" );
+	printf ( "\t Reset Kinect motor angle with the SPACEBAR key.\n" );
+	printf ( "\t Increase Kinect depth thrshold angle with the 'o' key.\n" );
+	printf ( "\t Decrease Kinect depth thrshold angle with the 'k' key.\n" );
+	printf ( "\t Reset the Kinect with the + key \n\n" );
+	printf ( " Quit with the 'ESC' key.\n" );
 
 	dvel = false;
 	dusers = false;
@@ -1168,10 +1231,10 @@ int main ( int argc, char ** argv )
 	
 	clearData();
 
-	win_x = 512;
-	win_y = 512;
+	win_x = DEF_WINDOW_SIZE;
+	win_y = DEF_WINDOW_SIZE;
 
 	open_glut_window();
+
 	glutMainLoop();
-	cleanupExit();
 }
