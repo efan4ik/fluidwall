@@ -2,7 +2,7 @@
  * @file      KinectController.h
  * @author    Naureen Mahmood 
  * @copyright 2011 Austin Hines, Naureen Mahmood, and Texas A&M Dept. of Visualization
- * @version   1.0.0
+ * @version   1.0.1
  * 
  * This file is part of Fluid Wall. You can redistribute it and/or modify            
  * it under the terms of the GNU Lesser General Public License as published  
@@ -17,6 +17,12 @@
  * You should have received a copy of the GNU Lesser General Public License  
  * along with Fluid Wall. If not, see <http://www.gnu.org/licenses/>.            
  *
+ * Version History:
+ * 1.0.1
+ *	 - Made Kinect motor and depth functions also print their values
+ *     to the console to help people remember their settings. (Edit by Austin)
+ * 1.0.0
+ *   - Initial Release
  */
 
 #ifndef KINECT_CONTROLLER_H
@@ -80,7 +86,7 @@ public:
 	XnStatus reset();
 
 	/*! Set Depth Threshold		*/
-	void setDepth(int depthDelta)	{	depthThresh+=depthDelta;	}
+	void setDepth(int depthDelta);
 	/*! Set Kinect Motor Angle	[range: (up/down) 15000/-15000	*/
 	void setMotorAngle(int angle);
 	/*! Reset Kinect Motor to 'initAngle' value passed at intialization */

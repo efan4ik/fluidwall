@@ -91,6 +91,14 @@
     <ClCompile Include="fluidWall.cpp" />
     <ClCompile Include="KinectController.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\configKinect.props" />
+    <None Include="..\configOpenCvDebug.props" />
+    <None Include="..\configOpenCvRelease.props" />
+    <None Include="..\configOpenGl.props" />
+    <None Include="..\LGPL.txt" />
+    <None Include="..\Release\INSTALL.pdf" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
